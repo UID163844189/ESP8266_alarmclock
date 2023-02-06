@@ -50,6 +50,7 @@ unsigned int localPort = 8888; // 用于侦听UDP数据包的本地端口
 static int alarmTimeHour;	   // 闹钟时间小时
 static int alarmTimeMinute;	   // 闹钟时间分钟
 bool alarmDisengaged = false;
+bool screenClosed = false; // 屏幕关闭
 
 time_t getNtpTime();
 void sendNTPpacket(IPAddress &address);
@@ -127,7 +128,8 @@ void loop()
 		if (now() != prevDisplay)
 		{ // 时间改变时更新显示
 			prevDisplay = now();
-			oledClockDisplay();
+			if (!screenClosed)
+				oledClockDisplay();
 
 			// Serial.println(checkIfEnableToday());
 			// Serial.println("test point 1");
@@ -136,13 +138,25 @@ void loop()
 	}
 	// wificonfig.handle(); // 若不需要Web后台，可以注释掉此行
 	if (!digitalRead(mainPin))
+	{
 		alarmDisengaged = true;
+		if(screenClosed)
+			oledClockDisplay();
+		screenClosed = false;
+	}
 	if (!digitalRead(adjPin))
 		settingsPage();
 }
+void closeScreen()
+{
+	u8g2.clearBuffer();
+	u8g2.sendBuffer();
+	screenClosed = true;
+	delay(1000);
+}
 void settingsPage()
 {
-	static String settingsItem[] = {"adjust alarm time", "adjust alarm date"};
+	static String settingsItem[] = {"adjust alarm time", "adjust alarm date", "close the screen"};
 	int cursor = -1;
 	for (;; ESP.wdtFeed())
 	{
@@ -151,7 +165,7 @@ void settingsPage()
 			cursor++;
 
 			u8g2.clearBuffer();
-			if (cursor > 2)
+			if (cursor > 3)
 				cursor = 0;
 			u8g2.setCursor(0, 14);
 			if (cursor == 0)
@@ -167,24 +181,31 @@ void settingsPage()
 				u8g2.print(" ");
 			u8g2.print(settingsItem[1]);
 
-			u8g2.setCursor(0, 64);
+			u8g2.setCursor(0, 47);
 			if (cursor == 2)
 				u8g2.print(">");
 			else
 				u8g2.print(" ");
-			u8g2.print("return");
+			u8g2.print(settingsItem[2]);
+
+			u8g2.setCursor(0, 64);
+			if (cursor == 3)
+				u8g2.print(">");
+			else
+				u8g2.print(" ");
+			u8g2.print("<- return");
 
 			u8g2.sendBuffer();
 			delay(250);
-		}
-		if (!digitalRead(adjPin))
-		{
 		}
 
 		if (!digitalRead(mainPin))
 		{
 			if (cursor == 2)
-				break;
+				closeScreen();
+			if (cursor == 3)
+				;
+			break;
 		}
 	}
 }
@@ -208,6 +229,7 @@ bool checkIfNeedAlarmNow()
 	{
 		if (alarmDisengaged)
 			return false;
+		screenClosed = false;
 		return true;
 	}
 	else
