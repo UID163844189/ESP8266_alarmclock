@@ -19,12 +19,11 @@
  * 		d7		 ---  主按键
  * 		d6		 ---  调节按键
  */
+#include "WiFiInfo.h"
 char m = 1;													// 0为24小时，1为上午，2为下午；若需开启12小时制，则填1或2均可
 static const char ntpServerName[] = "ntp1.aliyun.com";		// NTP服务器，阿里云
 static const char backupNtpServerName[] = "ntp.ntsc.ac.cn"; // 备用NTP服务器
 const int timeZone = 8;										// 时区，北京时间为+8
-const char *ssid = "HUAWEI-1B9Q19ybx";
-const char *password = "13530479550";
 const bool enableAlarmDays[] = {1, 1, 1, 1, 1, 1, 1}; // 哪天要开启闹钟，分别对应周日到周六
 const int scrnoff = 23;								  // 屏幕晚上关闭的时间，24小时制，不想关填24
 const int scrnon = 8;								  // 屏幕早上开启时间，24小时制，不想关填0
