@@ -15,6 +15,9 @@
  *      G (GND)  ---  GND
  *      D1(GPIO5)---  SCL
  *      D2(GPIO4)---  SDA
+ * 		d8		 ---  闹钟
+ * 		d7		 ---  主按键
+ * 		d6		 ---  调节按键
  */
 char m = 1;													// 0为24小时，1为上午，2为下午；若需开启12小时制，则填1或2均可
 static const char ntpServerName[] = "ntp1.aliyun.com";		// NTP服务器，阿里云
@@ -28,6 +31,7 @@ static int scrnon = 8;								  // 屏幕早上开启时间，24小时制，不�
 static float alarmTime = 12.13;						  // 闹钟时间，24小时制！！！关闭填25
 #define outputPin 15								  // 继电器脚
 #define mainPin 13									  // 确认/关闭/小睡？按钮
+#define adjPin 12									  // 调整脚
 
 #include <TimeLib.h>
 #include <ESP8266WiFi.h>
@@ -133,6 +137,56 @@ void loop()
 	// wificonfig.handle(); // 若不需要Web后台，可以注释掉此行
 	if (!digitalRead(mainPin))
 		alarmDisengaged = true;
+	if (!digitalRead(adjPin))
+		settingsPage();
+}
+void settingsPage()
+{
+	static String settingsItem[] = {"adjust alarm time", "adjust alarm date"};
+	int cursor = -1;
+	for (;; ESP.wdtFeed())
+	{
+		if (!digitalRead(adjPin))
+		{
+			cursor++;
+
+			u8g2.clearBuffer();
+			if (cursor > 2)
+				cursor = 0;
+			u8g2.setCursor(0, 14);
+			if (cursor == 0)
+				u8g2.print(">");
+			else
+				u8g2.print(" ");
+			u8g2.print(settingsItem[0]);
+
+			u8g2.setCursor(0, 30);
+			if (cursor == 1)
+				u8g2.print(">");
+			else
+				u8g2.print(" ");
+			u8g2.print(settingsItem[1]);
+
+			u8g2.setCursor(0, 64);
+			if (cursor == 2)
+				u8g2.print(">");
+			else
+				u8g2.print(" ");
+			u8g2.print("return");
+
+			u8g2.sendBuffer();
+			delay(250);
+		}
+		if (!digitalRead(adjPin))
+		{
+		}
+
+		if (!digitalRead(mainPin))
+		{
+			if (cursor == 2)
+				break;
+		}
+	}
 }
 bool checkIfEnableToday()
 {
