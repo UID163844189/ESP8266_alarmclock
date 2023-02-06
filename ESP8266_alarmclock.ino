@@ -26,9 +26,9 @@ const int timeZone = 8;										// 时区，北京时间为+8
 const char *ssid = "HUAWEI-1B9Q19ybx";
 const char *password = "13530479550";
 const bool enableAlarmDays[] = {1, 1, 1, 1, 1, 1, 1}; // 哪天要开启闹钟，分别对应周日到周六
-static int scrnoff = 23;							  // 屏幕晚上关闭的时间，24小时制，不想关填24
-static int scrnon = 8;								  // 屏幕早上开启时间，24小时制，不想关填0
-static float alarmTime = 12.13;						  // 闹钟时间，24小时制！！！关闭填25
+const int scrnoff = 23;								  // 屏幕晚上关闭的时间，24小时制，不想关填24
+const int scrnon = 8;								  // 屏幕早上开启时间，24小时制，不想关填0
+const float alarmTime = 12.13;						  // 闹钟时间，24小时制！！！关闭填25
 #define outputPin 15								  // 继电器脚
 #define mainPin 13									  // 确认/关闭/小睡？按钮
 #define adjPin 12									  // 调整脚
@@ -140,7 +140,7 @@ void loop()
 	if (!digitalRead(mainPin))
 	{
 		alarmDisengaged = true;
-		if(screenClosed)
+		if (screenClosed)
 			oledClockDisplay();
 		screenClosed = false;
 	}
@@ -154,19 +154,110 @@ void closeScreen()
 	screenClosed = true;
 	delay(1000);
 }
+void adjustAlarmTime()
+{
+	int alarmTimeHourTemp = alarmTimeHour, alarmTimeMinuteTemp = alarmTimeMinute;
+	u8g2.clearBuffer();
+	u8g2.setCursor(0, 14);
+	u8g2.print("Alarm time");
+
+	u8g2.setCursor(0, 30);
+	if (alarmTimeHourTemp < 10)
+		u8g2.print("0");
+	u8g2.print(alarmTimeHourTemp);
+	u8g2.print(":");
+	if (alarmTimeMinuteTemp < 10)
+		u8g2.print("0");
+	u8g2.print(alarmTimeMinuteTemp);
+
+	u8g2.setCursor(0, 47);
+	u8g2.print(" ^");
+	delay(200);
+	u8g2.sendBuffer();
+
+	for (;; ESP.wdtFeed())
+	{
+		if (!digitalRead(adjPin)) // 这部分用于按下调整按钮后修改数值
+		{
+			alarmTimeHourTemp++;
+			if (alarmTimeHourTemp > 25)
+				alarmTimeHourTemp = 0;
+			u8g2.setCursor(0, 30);
+			if (alarmTimeHourTemp < 10)
+				u8g2.print("0");
+			u8g2.print(alarmTimeHourTemp);
+			u8g2.print(":");
+			if (alarmTimeMinuteTemp < 10)
+				u8g2.print("0");
+			u8g2.print(alarmTimeMinuteTemp);
+			u8g2.sendBuffer();
+			delay(250);
+		}
+		if (!digitalRead(mainPin))
+		{
+			break;
+		}
+	}
+	alarmTimeHour = alarmTimeHourTemp;
+
+	u8g2.clearBuffer();
+	u8g2.setCursor(0, 14);
+	u8g2.print("Alarm time");
+
+	u8g2.setCursor(0, 30);
+	if (alarmTimeHourTemp < 10)
+		u8g2.print("0");
+	u8g2.print(alarmTimeHourTemp);
+	u8g2.print(":");
+	if (alarmTimeMinuteTemp < 10)
+		u8g2.print("0");
+	u8g2.print(alarmTimeMinuteTemp);
+
+	u8g2.setCursor(0, 47);
+	u8g2.print("    ^");
+	delay(200);
+	u8g2.sendBuffer();
+	for (;; ESP.wdtFeed())
+	{
+		if (!digitalRead(adjPin)) // 这部分用于按下调整按钮后修改数值
+		{
+			alarmTimeMinuteTemp++;
+			if (alarmTimeMinuteTemp > 59)
+				alarmTimeMinuteTemp = 0;
+			u8g2.setCursor(0, 30);
+			if (alarmTimeHourTemp < 10)
+				u8g2.print("0");
+			u8g2.print(alarmTimeHourTemp);
+			u8g2.print(":");
+			if (alarmTimeMinuteTemp < 10)
+				u8g2.print("0");
+			u8g2.print(alarmTimeMinuteTemp);
+			u8g2.sendBuffer();
+			delay(250);
+		}
+		if (!digitalRead(mainPin))
+		{
+			break;
+		}
+	}
+	alarmTimeMinute = alarmTimeMinuteTemp;
+	Serial.print("set alarm time: ");
+	Serial.print(alarmTimeHour);
+	Serial.println(alarmTimeMinute);
+}
 void settingsPage()
 {
 	static String settingsItem[] = {"adjust alarm time", "adjust alarm date", "close the screen"};
 	int cursor = -1;
 	for (;; ESP.wdtFeed())
 	{
-		if (!digitalRead(adjPin))
+		if (!digitalRead(adjPin)) // 这部分用于按下调整按钮后修改游标位置
 		{
 			cursor++;
-
-			u8g2.clearBuffer();
 			if (cursor > 3)
 				cursor = 0;
+
+			u8g2.clearBuffer();
 			u8g2.setCursor(0, 14);
 			if (cursor == 0)
 				u8g2.print(">");
@@ -201,6 +292,8 @@ void settingsPage()
 
 		if (!digitalRead(mainPin))
 		{
+			if (cursor == 0)
+				adjustAlarmTime();
 			if (cursor == 2)
 				closeScreen();
 			if (cursor == 3)
@@ -209,6 +302,7 @@ void settingsPage()
 		}
 	}
 }
+#pragma region 判断闹钟响不响的
 bool checkIfEnableToday()
 {
 	// Serial.println("test point 2");
@@ -235,6 +329,7 @@ bool checkIfNeedAlarmNow()
 	else
 		return false;
 }
+#pragma endregion
 
 void initdisplay()
 {
@@ -252,7 +347,7 @@ void oledClockDisplay()
 	minutes = minute();
 	seconds = second();
 	weekdays = weekday();
-	Serial.printf("%d/%d/%d %d:%d:%d Weekday:%d\n", years, months, days, hours, minutes, seconds, weekdays);
+	//Serial.printf("%d/%d/%d %d:%d:%d Weekday:%d\n", years, months, days, hours, minutes, seconds, weekdays);
 	u8g2.clearBuffer();
 	u8g2.setFont(u8g2_font_unifont_t_chinese2);
 	u8g2.setCursor(0, 14);
